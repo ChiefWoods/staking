@@ -43,6 +43,7 @@ impl InitConfig<'_> {
             points_per_stake: args.points_per_stake,
             max_stake: args.max_stake,
             freeze_period: args.freeze_period,
+            admin: ctx.accounts.admin.key(),
         });
 
         Ok(())

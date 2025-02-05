@@ -7,5 +7,5 @@ pub struct Config {
     pub rewards_bump: u8,
     pub points_per_stake: u8,
     pub max_stake: u8,
-    pub freeze_period: u32,
+    pub admin: Pubkey,
 }
