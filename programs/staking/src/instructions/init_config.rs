@@ -7,7 +7,7 @@ use crate::{constants::*, state::*};
 pub struct InitConfigArgs {
     pub points_per_stake: u8,
     pub max_stake: u8,
-    pub freeze_period: u32,
+    pub freeze_period: i64,
 }
 
 #[derive(Accounts)]

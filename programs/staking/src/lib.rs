@@ -26,4 +26,8 @@ pub mod staking {
     pub fn add_stake(ctx: Context<AddStake>) -> Result<()> {
         AddStake::add_stake(ctx)
     }
+
+    pub fn remove_stake(ctx: Context<RemoveStake>) -> Result<()> {
+        RemoveStake::remove_stake(ctx)
+    }
 }
