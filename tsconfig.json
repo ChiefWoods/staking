@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "types": ["bun"],
+    "typeRoots": ["./node_modules/@types"],
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "target": "ESNext",
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+  }
+}
