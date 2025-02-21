@@ -44,13 +44,6 @@ pub struct RemoveStake<'info> {
     #[account(mint::token_program = token_program)]
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(
-        seeds = [REWARDS_MINT_SEED, config.key().as_ref()],
-        bump = config.rewards_bump,
-        mint::decimals = 6,
-        mint::authority = config.admin,
-    )]
-    pub rewards_mint: InterfaceAccount<'info, Mint>,
-    #[account(
         mut,
         associated_token::mint = mint,
         associated_token::authority = authority,
