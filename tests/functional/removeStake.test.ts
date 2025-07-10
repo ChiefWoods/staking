@@ -1,14 +1,7 @@
-import { AnchorError, BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program } from "@coral-xyz/anchor";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Clock, ProgramTestContext } from "solana-bankrun";
 import { Staking } from "../../target/types/staking";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   ACCOUNT_SIZE,
   AccountLayout,
@@ -17,31 +10,29 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { collectionAddress, mintAddress } from "../constants";
-import { getBankrunSetup } from "../setup";
-import {
-  getConfigPdaAndBump,
-  getStakePdaAndBump,
-  getUserPdaAndBump,
-} from "../pda";
-import { getConfigAcc, getStakeAcc, getUserAcc } from "../accounts";
+import { getConfigPda, getStakePda, getUserPda } from "../pda";
+import { fetchConfigAcc, fetchUserAcc } from "../accounts";
+import { Clock, LiteSVM } from "litesvm";
+import { LiteSVMProvider } from "anchor-litesvm";
+import { expectAnchorError, fundedSystemAccountInfo, getSetup } from "../setup";
 
 describe("removeStake", () => {
-  let { context, provider, program } = {} as {
-    context: ProgramTestContext;
-    provider: BankrunProvider;
+  let { litesvm, provider, program } = {} as {
+    litesvm: LiteSVM;
+    provider: LiteSVMProvider;
     program: Program<Staking>;
   };
 
   const [adminKeypair, walletKeypair] = Array.from(
     { length: 2 },
-    Keypair.generate
+    Keypair.generate,
   );
 
   const walletAta = getAssociatedTokenAddressSync(
     mintAddress,
     walletKeypair.publicKey,
     false,
-    TOKEN_PROGRAM_ID
+    TOKEN_PROGRAM_ID,
   );
 
   beforeEach(async () => {
@@ -60,31 +51,17 @@ describe("removeStake", () => {
         closeAuthorityOption: 0,
         closeAuthority: PublicKey.default,
       },
-      walletAtaData
+      walletAtaData,
     );
 
-    ({ context, provider, program } = await getBankrunSetup([
+    ({ litesvm, provider, program } = await getSetup([
+      ...[adminKeypair, walletKeypair].map((kp) => ({
+        pubkey: kp.publicKey,
+        account: fundedSystemAccountInfo(),
+      })),
       {
-        address: adminKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
-      },
-      {
-        address: walletKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
-      },
-      {
-        address: walletAta,
-        info: {
+        pubkey: walletAta,
+        account: {
           lamports: LAMPORTS_PER_SOL,
           data: walletAtaData,
           owner: TOKEN_PROGRAM_ID,
@@ -133,16 +110,16 @@ describe("removeStake", () => {
       leaderScheduleEpoch,
       slot,
       unixTimestamp,
-    } = await context.banksClient.getClock();
+    } = litesvm.getClock();
     const minimumStakeTime = 60 * 60 * 24 * 1; // 1 day
-    context.setClock(
+    litesvm.setClock(
       new Clock(
         slot,
         epochStartTimestamp,
         epoch,
         leaderScheduleEpoch,
-        unixTimestamp + BigInt(minimumStakeTime)
-      )
+        unixTimestamp + BigInt(minimumStakeTime),
+      ),
     );
 
     await program.methods
@@ -155,18 +132,18 @@ describe("removeStake", () => {
       .signers([walletKeypair])
       .rpc();
 
-    const [stakePda] = getStakePdaAndBump(walletKeypair.publicKey);
-    const stakeAcc = await context.banksClient.getAccount(stakePda);
+    const stakePda = getStakePda(walletKeypair.publicKey);
+    const stakeAcc = litesvm.getAccount(stakePda);
 
     expect(stakeAcc).toBeNull();
 
-    const [userPda] = getUserPdaAndBump(walletKeypair.publicKey);
-    const userAcc = await getUserAcc(program, userPda);
+    const userPda = getUserPda(walletKeypair.publicKey);
+    const userAcc = await fetchUserAcc(program, userPda);
 
     expect(userAcc.amountStaked).toEqual(0);
 
-    const [configPda] = getConfigPdaAndBump();
-    const configAcc = await getConfigAcc(program, configPda);
+    const configPda = getConfigPda();
+    const configAcc = await fetchConfigAcc(program, configPda);
 
     expect(userAcc.points).toEqual(configAcc.pointsPerStake);
 
@@ -174,7 +151,7 @@ describe("removeStake", () => {
       provider.connection,
       walletAta,
       "processed",
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     expect(walletAtaAcc.delegate).toBeNull();
@@ -194,9 +171,7 @@ describe("removeStake", () => {
         .signers([walletKeypair])
         .rpc();
     } catch (err) {
-      expect(err).toBeInstanceOf(AnchorError);
-      expect(err.error.errorCode.code).toEqual("FreezePeriodNotOver");
-      expect(err.error.errorCode.number).toEqual(6001);
+      expectAnchorError(err, "FreezePeriodNotOver");
     }
   });
 });

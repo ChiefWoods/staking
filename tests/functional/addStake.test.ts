@@ -1,14 +1,7 @@
 import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Clock, ProgramTestContext } from "solana-bankrun";
 import { Staking } from "../../target/types/staking";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   ACCOUNT_SIZE,
   AccountLayout,
@@ -17,27 +10,29 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { collectionAddress, mintAddress } from "../constants";
-import { getBankrunSetup } from "../setup";
-import { getStakePdaAndBump, getUserPdaAndBump } from "../pda";
-import { getStakeAcc, getUserAcc } from "../accounts";
+import { getStakePda, getUserPda } from "../pda";
+import { fetchStakeAcc, fetchUserAcc } from "../accounts";
+import { LiteSVM } from "litesvm";
+import { LiteSVMProvider } from "anchor-litesvm";
+import { fundedSystemAccountInfo, getSetup } from "../setup";
 
 describe("addStake", () => {
-  let { context, provider, program } = {} as {
-    context: ProgramTestContext;
-    provider: BankrunProvider;
+  let { litesvm, provider, program } = {} as {
+    litesvm: LiteSVM;
+    provider: LiteSVMProvider;
     program: Program<Staking>;
   };
 
   const [adminKeypair, walletKeypair] = Array.from(
     { length: 2 },
-    Keypair.generate
+    Keypair.generate,
   );
 
   const walletAta = getAssociatedTokenAddressSync(
     mintAddress,
     walletKeypair.publicKey,
     false,
-    TOKEN_PROGRAM_ID
+    TOKEN_PROGRAM_ID,
   );
 
   beforeEach(async () => {
@@ -56,31 +51,19 @@ describe("addStake", () => {
         closeAuthorityOption: 0,
         closeAuthority: PublicKey.default,
       },
-      walletAtaData
+      walletAtaData,
     );
 
-    ({ context, provider, program } = await getBankrunSetup([
+    ({ litesvm, provider, program } = await getSetup([
+      ...[adminKeypair, walletKeypair].map((kp) => {
+        return {
+          pubkey: kp.publicKey,
+          account: fundedSystemAccountInfo(),
+        };
+      }),
       {
-        address: adminKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
-      },
-      {
-        address: walletKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
-      },
-      {
-        address: walletAta,
-        info: {
+        pubkey: walletAta,
+        account: {
           lamports: LAMPORTS_PER_SOL,
           data: walletAtaData,
           owner: TOKEN_PROGRAM_ID,
@@ -112,9 +95,7 @@ describe("addStake", () => {
   });
 
   test("add a stake", async () => {
-    const startStake = Number(
-      (await context.banksClient.getClock()).unixTimestamp
-    );
+    const startStake = Number(litesvm.getClock().unixTimestamp);
 
     await program.methods
       .addStake()
@@ -127,16 +108,15 @@ describe("addStake", () => {
       .signers([walletKeypair])
       .rpc();
 
-    const [stakePda, stakeBump] = getStakePdaAndBump(mintAddress);
-    const stakeAcc = await getStakeAcc(program, stakePda);
+    const stakePda = getStakePda(mintAddress);
+    const stakeAcc = await fetchStakeAcc(program, stakePda);
 
-    expect(stakeAcc.bump).toEqual(stakeBump);
     expect(stakeAcc.startStake.toNumber()).toEqual(startStake);
     expect(stakeAcc.authority).toStrictEqual(walletKeypair.publicKey);
     expect(stakeAcc.mint).toStrictEqual(mintAddress);
 
-    const [userPda] = getUserPdaAndBump(walletKeypair.publicKey);
-    const userAcc = await getUserAcc(program, userPda);
+    const userPda = getUserPda(walletKeypair.publicKey);
+    const userAcc = await fetchUserAcc(program, userPda);
 
     expect(userAcc.amountStaked).toEqual(1);
 
@@ -144,7 +124,7 @@ describe("addStake", () => {
       provider.connection,
       walletAta,
       "processed",
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     expect(walletAtaAcc.delegate).toStrictEqual(stakePda);

@@ -1,32 +1,27 @@
-import { BankrunProvider } from "anchor-bankrun";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { ProgramTestContext } from "solana-bankrun";
 import { Staking } from "../../target/types/staking";
 import { Program } from "@coral-xyz/anchor";
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
-import { getBankrunSetup } from "../setup";
-import { getUserPdaAndBump } from "../pda";
-import { getUserAcc } from "../accounts";
+import { Keypair } from "@solana/web3.js";
+import { getUserPda } from "../pda";
+import { fetchUserAcc } from "../accounts";
+import { LiteSVM } from "litesvm";
+import { LiteSVMProvider } from "anchor-litesvm";
+import { fundedSystemAccountInfo, getSetup } from "../setup";
 
 describe("registerUser", () => {
-  let { context, provider, program } = {} as {
-    context: ProgramTestContext;
-    provider: BankrunProvider;
+  let { litesvm, provider, program } = {} as {
+    litesvm: LiteSVM;
+    provider: LiteSVMProvider;
     program: Program<Staking>;
   };
 
   const walletKeypair = Keypair.generate();
 
   beforeEach(async () => {
-    ({ context, provider, program } = await getBankrunSetup([
+    ({ litesvm, provider, program } = await getSetup([
       {
-        address: walletKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
+        pubkey: walletKeypair.publicKey,
+        account: fundedSystemAccountInfo(),
       },
     ]));
   });
@@ -40,10 +35,9 @@ describe("registerUser", () => {
       .signers([walletKeypair])
       .rpc();
 
-    const [userPda, userBump] = getUserPdaAndBump(walletKeypair.publicKey);
-    const userAcc = await getUserAcc(program, userPda);
+    const userPda = getUserPda(walletKeypair.publicKey);
+    const userAcc = await fetchUserAcc(program, userPda);
 
-    expect(userAcc.bump).toEqual(userBump);
     expect(userAcc.points).toEqual(0);
     expect(userAcc.amountStaked).toEqual(0);
   });

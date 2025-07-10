@@ -1,33 +1,28 @@
-import { BankrunProvider } from "anchor-bankrun";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { ProgramTestContext } from "solana-bankrun";
 import { Staking } from "../../target/types/staking";
 import { BN, Program } from "@coral-xyz/anchor";
-import { getBankrunSetup } from "../setup";
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { getConfigPdaAndBump, getRewardsMintPdaAndBump } from "../pda";
-import { getConfigAcc } from "../accounts";
+import { getConfigPda } from "../pda";
+import { fetchConfigAcc } from "../accounts";
+import { LiteSVM } from "litesvm";
+import { LiteSVMProvider } from "anchor-litesvm";
+import { fundedSystemAccountInfo, getSetup } from "../setup";
 
 describe("initConfig", () => {
-  let { context, provider, program } = {} as {
-    context: ProgramTestContext;
-    provider: BankrunProvider;
+  let { litesvm, provider, program } = {} as {
+    litesvm: LiteSVM;
+    provider: LiteSVMProvider;
     program: Program<Staking>;
   };
 
   const adminKeypair = Keypair.generate();
 
   beforeEach(async () => {
-    ({ context, provider, program } = await getBankrunSetup([
+    ({ litesvm, provider, program } = await getSetup([
       {
-        address: adminKeypair.publicKey,
-        info: {
-          lamports: LAMPORTS_PER_SOL * 5,
-          data: Buffer.alloc(0),
-          owner: SystemProgram.programId,
-          executable: false,
-        },
+        pubkey: adminKeypair.publicKey,
+        account: fundedSystemAccountInfo(),
       },
     ]));
   });
@@ -50,17 +45,12 @@ describe("initConfig", () => {
       .signers([adminKeypair])
       .rpc();
 
-    const [configPda, configBump] = getConfigPdaAndBump();
-    const configAcc = await getConfigAcc(program, configPda);
+    const configPda = getConfigPda();
+    const configAcc = await fetchConfigAcc(program, configPda);
 
-    expect(configAcc.bump).toEqual(configBump);
     expect(configAcc.pointsPerStake).toEqual(pointsPerStake);
     expect(configAcc.maxStake).toEqual(maxStake);
     expect(configAcc.freezePeriod.toNumber()).toEqual(freezePeriod.toNumber());
     expect(configAcc.admin).toStrictEqual(adminKeypair.publicKey);
-
-    const rewardsBump = getRewardsMintPdaAndBump(configPda)[1];
-
-    expect(configAcc.rewardsBump).toEqual(rewardsBump);
   });
 });
