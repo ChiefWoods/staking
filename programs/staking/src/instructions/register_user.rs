@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::*, state::*};
+use crate::{User, USER_SEED};
 
 #[derive(Accounts)]
 pub struct RegisterUser<'info> {
@@ -18,7 +18,7 @@ pub struct RegisterUser<'info> {
 }
 
 impl RegisterUser<'_> {
-    pub fn register_user(ctx: Context<RegisterUser>) -> Result<()> {
+    pub fn handler(ctx: Context<RegisterUser>) -> Result<()> {
         ctx.accounts.user.set_inner(User {
             bump: ctx.bumps.user,
             points: 0,

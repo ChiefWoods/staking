@@ -1,4 +1,3 @@
-use crate::{constants::*, error::StakingError, state::*};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     metadata::{
@@ -6,6 +5,11 @@ use anchor_spl::{
         Metadata,
     },
     token_interface::{revoke, Mint, Revoke, TokenAccount, TokenInterface},
+};
+
+use crate::{
+    error::StakingError, Config, Stake, User, CONFIG_SEED, EDITION_SEED, METADATA_SEED, STAKE_SEED,
+    USER_SEED,
 };
 
 #[derive(Accounts)]
@@ -55,7 +59,7 @@ pub struct RemoveStake<'info> {
 }
 
 impl RemoveStake<'_> {
-    pub fn remove_stake(ctx: Context<RemoveStake>) -> Result<()> {
+    pub fn handler(ctx: Context<RemoveStake>) -> Result<()> {
         require_gte!(
             Clock::get()?.unix_timestamp - ctx.accounts.stake.start_stake,
             ctx.accounts.config.freeze_period,

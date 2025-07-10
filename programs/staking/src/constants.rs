@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::metadata::mpl_token_metadata::accounts::*;
+use anchor_spl::metadata::mpl_token_metadata::accounts::{MasterEdition, Metadata};
 
 #[constant]
 pub const CONFIG_SEED: &[u8] = b"config";

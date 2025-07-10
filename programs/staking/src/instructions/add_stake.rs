@@ -1,4 +1,3 @@
-use crate::{constants::*, error::StakingError, state::*};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     metadata::{
@@ -6,6 +5,11 @@ use anchor_spl::{
         Metadata, MetadataAccount,
     },
     token_interface::{approve, Approve, Mint, TokenAccount, TokenInterface},
+};
+
+use crate::{
+    error::StakingError, Config, Stake, User, CONFIG_SEED, EDITION_SEED, METADATA_SEED, STAKE_SEED,
+    USER_SEED,
 };
 
 #[derive(Accounts)]
@@ -70,7 +74,7 @@ pub struct AddStake<'info> {
 }
 
 impl AddStake<'_> {
-    pub fn add_stake(ctx: Context<AddStake>) -> Result<()> {
+    pub fn handler(ctx: Context<AddStake>) -> Result<()> {
         require!(
             ctx.accounts.user.amount_staked < ctx.accounts.config.max_stake,
             StakingError::MaxStakeLimitReached
