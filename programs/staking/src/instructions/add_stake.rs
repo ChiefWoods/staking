@@ -1,5 +1,5 @@
 use crate::{constants::*, error::StakingError, state::*};
-use anchor_lang::{prelude::*, Discriminator};
+use anchor_lang::prelude::*;
 use anchor_spl::{
     metadata::{
         mpl_token_metadata::instructions::FreezeDelegatedAccountCpiBuilder, MasterEditionAccount,
